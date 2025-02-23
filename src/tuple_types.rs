@@ -73,7 +73,7 @@ macro_rules! as_bytes_impl {
 }
 
 macro_rules! type_name_impl {
-    ( $head:ty $(,$tail:ty)+ ) => {
+    ( $head:ty $(,$tail:ty)* ) => {
         {
             let mut result = String::new();
             result.push('(');
@@ -81,7 +81,7 @@ macro_rules! type_name_impl {
             $(
                 result.push(',');
                 result.push_str(&<$tail>::type_name().name());
-            )+
+            )*
             result.push(')');
 
             TypeName::internal(&result)
@@ -233,6 +233,44 @@ macro_rules! tuple_impl {
             }
         }
     };
+}
+
+impl<T0: Value> Value for (T0,) {
+    type SelfType<'a> = (T0::SelfType<'a>,)
+    where
+        Self: 'a;
+    type AsBytes<'a> = Vec<u8>
+    where
+        Self: 'a;
+
+    fn fixed_width() -> Option<usize> {
+        T0::fixed_width()
+    }
+
+    fn from_bytes<'a>(data: &'a [u8]) -> Self::SelfType<'a>
+    where
+        Self: 'a,
+    {
+        (T0::from_bytes(data),)
+    }
+
+    fn as_bytes<'a, 'b: 'a>(value: &'a Self::SelfType<'b>) -> Vec<u8>
+    where
+        Self: 'a,
+        Self: 'b,
+    {
+        as_bytes_impl!(value, T0, 0)
+    }
+
+    fn type_name() -> TypeName {
+        type_name_impl!(T0)
+    }
+}
+
+impl<T0: Key> Key for (T0,) {
+    fn compare(data1: &[u8], data2: &[u8]) -> Ordering {
+        not_equal::<T0>(data1, data2).unwrap_or(Ordering::Equal)
+    }
 }
 
 tuple_impl! {
